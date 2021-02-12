@@ -1,3 +1,4 @@
 #dependecy file
-experta
+experta~=1.9.4
 numpy
+schema~=0.6.7

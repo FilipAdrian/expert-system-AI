@@ -1,6 +1,6 @@
 
 dataset = {
-    "earthing": {"hair": ["light color", "short", "no hair"],
+    "earthing": {"hair": ["light color", "short"],
                  "equipment": ["oxygen mask", "spacesuit"],
                  "type": ["humanoid"],
                  "language": ["english"],
@@ -33,8 +33,7 @@ dataset = {
                   "type": ["porcine"],
                   "language": ["english"],
                   "skin": ["green", "pigmented"],
-                  "eyes": ["elongated"],
-                  "other": ["two small horns", "unclear spoken words"]
+                  "eyes": ["elongated"]
                   },
     "abednedo": {"hair": ["above eyes"],
                  "equipment": ["sun glasses", "spacesuit"],
@@ -57,7 +56,7 @@ def detect_characteristic_ratio():
                 info[key] = set(dataset[type][key])
             else:
                 tmp = set(info[key]).union(dataset[type][key])
-                info[key] = tmp
+                info[key] = list(tmp)
         characteristics = characteristics.union(keys)
     max_key, value = max(info.items(), key=lambda x: len(set(x[1])))
     return info, max_key, list(value)

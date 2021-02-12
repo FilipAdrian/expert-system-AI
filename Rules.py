@@ -1,127 +1,153 @@
-import schema
-from experta import *
-
-from DataSet import *
-
-
-class FactStructure(Fact):
-    type = Field(str)
-    isPresent = Field(bool, default=True)
-
-
-class Equipment(Fact):
-    wearType = Field(str, mandatory=True)
-    isPresent = Field(bool, default=True)
-
-
-class Eyes(Fact):
-    type = Field(str, mandatory=True)
-    isPresent = Field(bool, default=True)
-
-
-class BodyType(Fact):
-    type = Field(str, mandatory=True)
-    isPresent = Field(bool, default=True)
-
-
-class Hair(Fact):
-    isPresent = Field(bool, default=True)
-
-
-class Language(Fact):
-    type = Field(schema.Or(*compresed_info["language"]))
-
-
-# class Skin(Fact):
-#     color = Field(str, mandatory=True)
-#     isPresent = Field(bool, default=True)
-
-class Skin(FactStructure):
-    pass
-
-
-class Tourist(Fact):
-    type = Field(schema.Or(*list(dataset.keys())))
+from Facts import *
 
 
 class TouristRules:
     @Rule(Tourist(type=MATCH.type))
     def found_tourist(self, type):
-        print(f"Tourist is {type}")
+        print("============================")
+        print(f"Possible Answer: Tourist is {type}")
+        print("============================")
+        self.declare(Action("Done"))
+        return
+
+    @Rule(
+        OR(Equipment(type="oxygen mask", isPresent=True),
+           AND(Hair(type="hair", isPresent=True),
+               BodyType(type="humanoid", isPresent=True))))
+    def is_earthing(self):
+        self.declare(Tourist(type="earthing"))
+
+    @Rule(
+        OR(Language(type="loony", isPresent=True),
+           AND(Equipment(type="missing", isPresent=True),
+               BodyType(type="humanoid", isPresent=True))))
+    def is_loony(self):
+        self.declare(Tourist(type="loony"))
+
+    @Rule(
+        OR(Language(type="martian", isPresent=True),
+           AND(BodyType(type="humanoid", isPresent=True),
+               Skin(type="brown", isPresent=True))))
+    def is_martian(self):
+        self.declare(Tourist(type="martian"))
+
+    @Rule(BodyType(type="mammalian", isPresent=True),
+          Hair(type="hair", isPresent=True))
+    def is_abednedo(self):
+        self.declare(Tourist(type="abednedo"))
+
+    @Rule(
+        OR(AND(BodyType(type="reptiloid", isPresent=True),
+               BodyType(type="humanoid", isPresent=False)),
+           Language(type='mandalorian', isPresent=True)))
+    def is_mandalorian(self):
+        self.declare(Tourist(type="mandalorian"))
+
+    @Rule(BodyType(type="porcine", isPresent=True),
+          BodyType(type="humanoid", isPresent=False))
+    def is_gamorrean(self):
+        self.declare(Tourist(type="gamorrean"))
 
 
 class EquipmentRules:
 
-    @Rule(OR(Equipment(wearType='spacesuit', isPresent=True),
-             Equipment(wearType='jetpack', isPresent=False)))
-    def has_spacesuit(self):
-        print("-> Has SpaceSuit")
-        self.declare(Eyes(type="round"))
-
-    @Rule(OR(Equipment(wearType='spacesuit', isPresent=False),
-             Equipment(wearType='jetpack', isPresent=True)))
-    def has_no_spacesuit(self):
+    @Rule(AS.f2 << Equipment(type='jetpack', isPresent=True))
+    def has_jetpack(self, f1=None, f2=None):
         print("-> Has Jetpack")
-        print("-> Eyes are elongated")
-        self.declare(Eyes(type='elongated'))
+        self.declare(BodyType(type="humanoid", isPresent=False))
+        check_last_fact(self, f1, f2)
 
-    @Rule(Equipment(wearType="missing"))
-    def equipment_is_missing(self):
-        self.declare(Tourist(type="loony"))
+    @Rule(AS.f1 << Equipment(type="missing", isPresent=True))
+    def equipment_is_missing(self, f1):
+        print("-> Equipment is missing")
+        self.declare(Language(type="english", isPreset=True))
+        check_last_fact(self, f1)
 
+    @Rule(AS.f1 << Equipment(type=~L("missing") & ~L("jetpack")))
+    def no_equipment_match(self,f1):
+        check_last_fact(self, f1)
 
 class HairRules:
 
-    @Rule(Hair(isPresent=True))
-    def has_hair(self):
+    @Rule(AS.f1 << Hair(type=~L('no hair'), isPresent=True))
+    def has_hair(self, f1):
         print("-> Has Hair")
-        print("-> Could have White skin")
-        self.declare(Skin(color="white", isPresent=True))
+        self.declare(Hair(type="hair", isPresent=True))
+        self.declare(Skin(type="white", isPresent=True))
+        check_last_fact(self, f1)
 
-    @Rule(Hair(isPresent=False))
-    def has_no_hair(self):
+    @Rule(AS.f1 << Hair(type='no hair', isPresent=True))
+    def has_no_hair(self, f1=None):
         print("-> Does not have Hair")
-        print("-> Could not have White skin")
-        self.declare(Skin(color="white", isPresent=False))
+        self.declare(Skin(type="white", isPresent=False))
+        check_last_fact(self, f1)
 
 
 class EyesRules:
 
-    @Rule(Eyes(type=L("round") | L("black")))
-    def eyes_are_round(self):
+    @Rule(AS.f1 << Eyes(type=L("round") | L("black"), isPresent=True))
+    def eyes_are_round(self, f1):
         print("-> He has round eyes")
-        self.declare(BodyType("humanoid"))
-        self.declare(Language(type="english"))
+        self.declare(BodyType(type="humanoid", isPresent=True))
+        self.declare(Language(type="english", isPresent=True))
+        check_last_fact(self, f1)
 
-    @Rule(Eyes(type="round", isPresent=False))
-    def eyes_are_not_round(self):
-        print("-> He does not have round eyes")
+    @Rule(AS.f1 << Eyes(type=MATCH.type, isPresent=True))
+    def eyes_are_not_round(self, type, f1):
+        print(f"-> He has {type} eyes")
         self.declare(BodyType(type="humanoid", isPresent=False))
+        self.declare(Eyes(type="elongated", isPresent=True))
+        check_last_fact(self, f1)
 
 
 class BodyTypeRules:
 
-    @Rule(OR(BodyType(type="humanoid", isPresent=False),
-             BodyType(type=~L("humanoid"), isPresent=True)))
-    def is_not_humanoid(self):
+    @Rule(OR(AS.f1 << Hair(type="above eyes", isPresent=True),
+             AS.f2 << Equipment(type="sun glasses", isPresent=True)))
+    def is_mammalian(self, f1=None, f2=None):
         print("-> He is not humanoid")
-        self.declare(Equipment(wearType="jetpack"))
+        self.declare(BodyType(type="mammalian", isPresent=True))
+        check_last_fact(self, f1, f2)
 
-    @Rule(BodyType(type="humanoid", isPresent=True))
-    def is_humanoid(self):
+    @Rule(AND(AS.f1 << Skin(type="white", isPresent=False),
+              AS.f2 << Language(type="english", isPreset=False)))
+    def is_reptiloid(self, f1=None, f2=None):
+        print("-> He is not humanoid")
+        self.declare(BodyType(type="mammalian", isPresent=True))
+        check_last_fact(self, f1, f2)
+
+    @Rule(AS.f1 << BodyType(type="humanoid", isPresent=True))
+    def is_humanoid(self, f1):
         print("-> He is humanoid")
-        self.declare(Equipment(wearType="spacesuit"))
+        self.declare(Eyes(type="round", isPresent=True))
+        check_last_fact(self, f1)
 
 
 class LanguageRules:
-    @Rule(Language(type=~L("english")))
-    def is_not_english(self, type):
-        print("-> He is reptiloid")
-        self.declare(BodyType(type=type))
+    pass
 
 
 class SkinRules:
-    @Rule(OR(Skin(type="green", isPresent=True),
-             Skin(type="pigmented", isPresent=True)))
-    def is_green_or_pigmented(self):
-        self.declare(BodyType(type="humanoid", isPresent=False))
+    @Rule(OR(AS.f1 << Skin(type="green", isPresent=True),
+             AS.f2 << Skin(type="pigmented", isPresent=True)))
+    def is_green_or_pigmented(self, f1=None, f2=None):
+        self.declare(Hair(type='no hair', isPresent=True))
+        self.declare(BodyType(type="porcine", isPresent=True))
+        check_last_fact(self, f1, f2)
+
+    @Rule(AS.f1 << Skin(type="white", isPresent=False))
+    def is_not_white(self, f1):
+        print("-> Skin is not white")
+        self.declare(Hair(type='no hair', isPresent=True))
+        check_last_fact(self, f1)
+
+    @Rule(AS.f1 << Skin(type="white", isPresent=True))
+    def is_white(self, f1):
+        print("-> Skin is white")
+        self.declare(Hair(type="hair", isPresent=True))
+        check_last_fact(self, f1)
+
+    @Rule(AS.f1 << Skin(type=~L("white") & ~L("green") & ~L("pigmented"), isPresent=True))
+    def no_skin_match(self, f1):
+        check_last_fact(self, f1)
+
